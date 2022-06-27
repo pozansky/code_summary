@@ -83,8 +83,11 @@ def expect_imp(data, best_val, test_pts, test_val):
             #     qq.append(best_pt)
             # print(best_ei)
 
-
     return best_pt
+
+def UCB(x, gp, kappa):
+    mean, std = gp.predict(x, return_std=True)
+    return mean + kappa * std
 
 
 best_val = -1
