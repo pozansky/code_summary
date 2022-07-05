@@ -22,7 +22,7 @@ def get_data():
     # index = np.random.permutation(1015)
     # data = data[index]
 
-    data = sca.fit_transform(data[:, 0:8])
+    # data = sca.fit_transform(data[:, 0:8])
     train_data = data[:, 0:7]
     targets = data[:, 7]
     return train_data[:DATA_LEN], targets[:DATA_LEN]
@@ -44,14 +44,14 @@ data = pd.read_excel('dataset.xlsx')
 data = data.values
 # index = np.random.permutation(1015)
 # data = data[index]
-data = sca.fit_transform(data[:, 0:8])
+# data = sca.fit_transform(data[:, 0:8])
 train_data = data[:, 0:7]
 targets = data[:, 7]
 
-xgb_model = xgb.XGBRegressor(max_depth=3, n_estimators=1000, learning_rate=0.1)
-xgb_model.fit(train_data, targets)
+# xgb_model = xgb.XGBRegressor(max_depth=3, n_estimators=1000, learning_rate=0.1)
+# xgb_model.fit(train_data, targets)
 
-def get_param(new_pt, data, target, xi):
+def get_param(new_pt, data, target, xi, xgb_model):
     gp = GaussianProcessRegressor().fit(data, target)
     new_pt = np.expand_dims(new_pt, axis=0)
     mean, std = gp.predict(new_pt, return_std=True)
@@ -62,11 +62,11 @@ def get_param(new_pt, data, target, xi):
 
     return [mean, std, Z]
 
-def expect_imp(data, best_val, test_pts, test_val):
-    xi = 0.01
+def expect_imp(data, best_val, test_pts, test_val, xgb_model):
+    xi = 0.0
     best_ei = None
     for pt in data:
-        pt_mean, pt_std, Z = get_param(pt, test_pts, test_val, xi)
+        pt_mean, pt_std, Z = get_param(pt, test_pts, test_val, xi, xgb_model)
         pt_ei = 0
         if pt_std != 0:
             st_norm = norm()
@@ -85,6 +85,28 @@ def expect_imp(data, best_val, test_pts, test_val):
 
     return best_pt
 
+def PI(data, best_val, test_pts, test_val, xgb_model):
+    xi = 0.0
+    best_ei = None
+    for pt in data:
+        pt_mean, pt_std, Z = get_param(pt, test_pts, test_val, xi, xgb_model)
+        pt_ei = 0
+        if pt_std != 0:
+            st_norm = norm()
+            cdf_Z = st_norm.cdf(Z)
+
+        if best_ei == None:
+            best_ei = cdf_Z
+            best_pt = pt
+        elif cdf_Z > best_ei :
+            best_ei = cdf_Z
+            best_pt = pt
+            # if best_ei > 60:
+            #     qq.append(best_pt)
+            # print(best_ei)
+
+    return best_pt
+
 def UCB(x, gp, kappa):
     mean, std = gp.predict(x, return_std=True)
     return mean + kappa * std
@@ -95,9 +117,9 @@ best_val = -1
 
 xgb_model = xgb.XGBRegressor(max_depth=3, n_estimators=1000, learning_rate=0.1)
 
-xgb_model.fit(train_data, targets)
 
-xgb_model.fit(train_data, targets)
+
+
 GP = GaussianProcessRegressor()
 next_pt = np.asarray([[7.4, 0, 0.2, 0, 0.1, 150, 226]], dtype=object)
 best_pt = np.asarray([[7.4, 0, 0.2, 0, 0.1, 150, 226]], dtype=object)
@@ -105,11 +127,13 @@ best_pt = np.asarray([[7.4, 0, 0.2, 0, 0.1, 150, 226]], dtype=object)
 next_val = 88
 test_pts = np.asarray([[7.4, 0, 0.2, 0, 0.1, 150, 226]], dtype=object)
 test_vals = np.asarray([next_val])
+xgb_model.fit(train_data, targets)
 for i in range(300):
+
     # train_data, targets = get_data()
     # GP = GP.fit(train_data, targets)
     y_max = np.min(targets)
-    x_suggestion = expect_imp(train_data, y_max, test_pts, test_vals)
+    x_suggestion = expect_imp(train_data, y_max, test_pts, test_vals, xgb_model)
     x_suggestion = np.expand_dims(x_suggestion, axis=0)
     test_pts = np.r_[test_pts, x_suggestion]
     next_val = xgb_model.predict(x_suggestion)
@@ -129,7 +153,7 @@ for i in range(300):
     best_record = np.expand_dims(best_val, axis=0)
     result = np.append(x_suggestion, target)
     result = np.expand_dims(result, axis=0)
-    result = sca.inverse_transform(result)
+    # result = sca.inverse_transform(result)
     result = result[:, -1]
     print(result, "归一化后的结果")
 

@@ -8,6 +8,7 @@ from sklearn.preprocessing import MinMaxScaler
 import xgboost as xgb
 from scipy.stats import norm
 
+
 def argsparser():
     # Experiment setting
     parser = argparse.ArgumentParser("zoopt search")
@@ -16,13 +17,14 @@ def argsparser():
     parser.add_argument("--target_len", default=1, type=int)
     return parser.parse_known_args()[0].__dict__
 
+
 def get_data(config):
     if config["data_path"] == None or config["data_path"] == "":
         raise Exception("data path cannot be empty")
     data = pd.read_excel(config["data_path"])
     data = data.values
     train_data = data[:, 0:config["train_data_len"]]
-    targets = data[:, config["train_data_len"]-1+config["target_len"]]
+    targets = data[:, config["train_data_len"] - 1 + config["target_len"]]
     return data, train_data, targets
 
 
@@ -35,25 +37,16 @@ def data_processing(config):
     targets = data[:, 7]
     return sca, train_data, targets
 
-def get_param(new_pt, data, target, xi, best_pt):
-    xgb_model = xgb.XGBRegressor(max_depth=3, n_estimators=1000, learning_rate=0.1)
-    xgb_model.fit(data, target)
-    gp = GaussianProcessRegressor().fit(data, target)
-    new_pt = np.expand_dims(new_pt, axis=0)
-    mean, std = gp.predict(new_pt, return_std=True)
-    Z = 0
-    if best_pt.ndim == 1:
-        best_pt = np.expand_dims(best_pt, axis=0)
-    if std != 0:
-        best_val = xgb_model.predict(best_pt)
-        Z = (mean - best_val - xi) / std
-    return [mean, std, Z]
 
-def expect_imp(data, best_val, test_pts, test_val, best_pt):
-    xi = 0.0
+
+def expect_imp(data, targets, best_val, test_pts, test_vals, best_pt,gp, xgb_model):
+    xi = 0.01
     best_ei = None
+    # gp = GaussianProcessRegressor().fit(test_pts, test_vals)
     for pt in data:
-        pt_mean, pt_std, Z = get_param(pt, test_pts, test_val, xi, best_pt)
+        pt = np.expand_dims(pt, axis=0)
+        pt_mean, pt_std = gp.predict(pt, return_std=True)
+        Z = (pt_mean - best_val - xi) / pt_std
         pt_ei = 0
         if pt_std != 0:
             st_norm = norm()
@@ -63,32 +56,44 @@ def expect_imp(data, best_val, test_pts, test_val, best_pt):
         if best_ei == None:
             best_ei = pt_ei
             best_pt = pt
+            best_val = xgb_model.predict(best_pt)
         elif pt_ei > best_ei:
             best_ei = pt_ei
             best_pt = pt
-
+            best_val = xgb_model.predict(best_pt)
     return best_pt
 
-def UCB(x, gp, kappa):
-    mean, std = gp.predict(x, return_std=True)
-    return mean + kappa * std
 
-def PI(x, y_min, gp):
+def PI(data, targets, best_val, test_pts, test_vals, best_pt,gp, xgb_model):
     xi = 0.01
     best_ei = None
-    for pt in x:
-        pt_mean, pt_std, Z = get_param(pt,  xi, y_min, gp)
-        pt_pi = 0
+    gp = GaussianProcessRegressor().fit(test_pts, test_vals)
+    for pt in data:
+        pt = np.expand_dims(pt, axis=0)
+        pt_mean, pt_std = gp.predict(pt, return_std=True)
+        Z = (pt_mean - best_val - xi) / pt_std
+        pt_ei = 0
         if pt_std != 0:
             st_norm = norm()
             cdf_Z = st_norm.cdf(Z)
         if best_ei == None:
-            best_pi = cdf_Z
+            best_ei = cdf_Z
             best_pt = pt
-        elif pt_pi > best_pi:
-            best_pi = pt_pi
+            best_val = xgb_model.predict(best_pt)
+        elif cdf_Z > best_ei:
+            best_ei = cdf_Z
             best_pt = pt
+            best_val = xgb_model.predict(best_pt)
     return best_pt
+
+
+
+def UCB(x, gp, kappa):
+    mean, std = gp.predict(x, return_std=True)
+    upper = mean + kappa * std
+    x_max = x[upper.argmax()]
+    return x_max
+
 
 
 def main(config):
@@ -96,16 +101,23 @@ def main(config):
     best_val = -1
     xgb_model = xgb.XGBRegressor(max_depth=3, n_estimators=1000, learning_rate=0.1)
     xgb_model.fit(train_data, targets)
+    test_pts = train_data
+    test_vals = targets
+    best_pt = np.asarray([[8.8, 2, 2.2, 0.06, 0.25, 132, 2200]], dtype=object)
+    qq = []
+    xgb_model = xgb.XGBRegressor(max_depth=3, n_estimators=1000, learning_rate=0.1)
+    xgb_model.fit(train_data, targets)
     next_val = -1
-    test_pts = np.asarray([[7.4, 0, 0.2, 0, 0.1, 150, 226]], dtype=object)
-    test_vals = np.asarray([next_val])
-    best_pt = np.asarray([[7.4, 0, 0.2, 0, 0.1, 150, 226]], dtype=object)
-    for i in range(300):
-        y_min = np.min(targets)
-        print("kk")
-        x_suggestion = expect_imp(train_data, y_min, test_pts, test_vals, best_pt)
-        print("qq")
-        x_suggestion = np.expand_dims(x_suggestion, axis=0)
+    xgb_model = xgb.XGBRegressor(max_depth=3, n_estimators=1000, learning_rate=0.1)
+    xgb_model.fit(train_data, targets)
+    gp = GaussianProcessRegressor().fit(train_data, targets)
+    for i in range(5000):
+        y_max = np.max(test_vals)
+        # x_suggestion = PI4(next_val, train_data, 0.01, test_pts, test_vals)
+        x_suggestion = PI(train_data, targets, y_max, test_pts, test_vals, best_pt, gp, xgb_model)
+        # x_suggestion = PI3(train_data, y_min, 0.01, test_pts, test_vals)
+        # x_suggestion = UCB(train_data, gp, 0.2)
+        # x_suggestion = np.expand_dims(x_suggestion, axis=0)
         test_pts = np.r_[test_pts, x_suggestion]
         next_val = xgb_model.predict(x_suggestion)
         test_vals = np.append(test_vals, next_val)
@@ -119,12 +131,18 @@ def main(config):
         print(x_suggestion, "x_n+1")
         # print(target, "target")
         # print(best_val, "best_val")
+        gp = GaussianProcessRegressor().fit(train_data, targets)
         best_record = np.expand_dims(best_val, axis=0)
         result = np.append(x_suggestion, target)
         result = np.expand_dims(result, axis=0)
         result = sca.inverse_transform(result)
-        result = result[:, -1]
-        print(result, "归一化后的结果")
+        result1 = result[:, -1]
+        print(result, "结果")
+        qq.extend(result)
+        print(result1, "归一化后的结果")
+        df = pd.DataFrame(qq)
+        df.to_csv('bayesian_output1.csv', index=None)
+
 
 if __name__ == '__main__':
     config = argsparser()
@@ -132,3 +150,4 @@ if __name__ == '__main__':
 # print(train_data[DATA_LEN:], "训练数据")
 # print(targets[DATA_LEN:], "值")
 # print(np.max(targets[DATA_LEN:]))
+
