@@ -23,7 +23,7 @@ class ExpOpt:
         return
 
     @staticmethod
-    def min(objective, parameter, repeat=1, best_n=None, plot=False, plot_file=None):
+    def min(objective, parameter, lower_dim, upper_dim, repeat=1, best_n=None, plot=False, plot_file=None):
         """
         Minimization function.
 
@@ -45,7 +45,7 @@ class ExpOpt:
         result = []
         for i in range(repeat):
             # perform the optimization
-            solution = Opt.min(objective, parameter)
+            solution = Opt.min(objective, parameter, lower_dim, upper_dim)
             ret.append(solution)
             ToolFunction.log('The best solution is:')
             solution.print_solution()

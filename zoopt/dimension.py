@@ -120,6 +120,17 @@ class Dimension(object):
             else:
                 value = np.random.randint(self._regions[i][0], self._regions[i][1]+1)
             x.append(value)
+
+        # while x[1] < x[2]:
+        #     x = []
+        #     for i in range(self._size):
+        #         if self._types[i] is True:
+        #             value = np.random.uniform(
+        #                 self._regions[i][0], self._regions[i][1])
+        #         else:
+        #             value = np.random.randint(self._regions[i][0], self._regions[i][1] + 1)
+        #         x.append(value)
+        # print(10000)
         return x
 
     def limited_space(self):

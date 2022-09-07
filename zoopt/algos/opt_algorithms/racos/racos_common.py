@@ -18,7 +18,7 @@ class RacosCommon:
     """
     This class contains common attributes and methods shared by Racos, SRacos and SSRacos.
     """
-    def __init__(self):
+    def __init__(self, lower_dim, upper_dim):
         """
         Initialization.
         """
@@ -37,6 +37,8 @@ class RacosCommon:
         # Solution
         self._best_solution = None
         self._possible_solution_list = []
+        self.lower_dim = lower_dim
+        self.upper_dim = upper_dim
         return
 
     def clear(self):
@@ -208,6 +210,9 @@ class RacosCommon:
         """
         objective = self._objective
         x = objective.construct_solution(dim.rand_sample())
+
+        while x.__dict__['_Solution__x'][self.lower_dim] > x.__dict__['_Solution__x'][self.upper_dim]:
+            x = objective.construct_solution(dim.rand_sample())
         times = 1
         distinct_flag = True
         if check_distinct is True:
@@ -228,19 +233,46 @@ class RacosCommon:
 
     # Distinct sample from a classifier, return a solution
     # if check_distinct is False, you don't need to sample distinctly
-    def distinct_sample_classifier(self, classifier, data_list, check_distinct=True, data_num=0):
+    def distinct_sample_classifier(self, pos, classifier, data_list, check_distinct=True, data_num=0):
         """
         Sample a distinct solution from a classifier.
         """
+        # i = 0
+        # print("pos", pos)
+        # k = 0
+        # y = classifier.rand_sample()
+        # change_idx = [i for i, (x1, y1) in enumerate(zip(x, y)) if x1 != y1]
+        #
+        # change_idx = classifier.get_label_index()
+        # print("dddddddddd", change_idx)
 
-        x = classifier.rand_sample()
-        sol = self._objective.construct_solution(x)
+        # while x[self.lower_dim] >= x[self.upper_dim] and change_idx[0] == self.lower_dim:
+        #     x = classifier.rand_sample()
+        #     print(x)
+        #     i += 1
+        #     print(i)
+        x1 = classifier.rand_sample()
+        x2 = classifier.rand_sample()
+
+        change_idx = [i for i, (x, y) in enumerate(zip(x1, x2)) if x != y]
+        if len(change_idx) != 0:
+            while x2[self.lower_dim] >= x2[self.upper_dim] and change_idx[0] == self.lower_dim:
+                x2 = classifier.rand_sample()
+                print(123)
+
+        sol = self._objective.construct_solution(x2)
         times = 1
         distinct_flag = True
         if check_distinct is True:
             while self.is_distinct(data_list, sol) is False:
-                x = classifier.rand_sample()
-                sol = self._objective.construct_solution(x)
+                x1 = classifier.rand_sample()
+                x2 = classifier.rand_sample()
+
+                change_idx = [i for i, (x, y) in enumerate(zip(x1, x2)) if x != y]
+                if len(change_idx) != 0:
+                    while x2[self.lower_dim] >= x2[self.upper_dim] and change_idx[0] == self.lower_dim:
+                        x2 = classifier.rand_sample()
+                sol = self._objective.construct_solution(x2)
                 times += 1
                 if times % 10 == 0:
                     if times == 10:

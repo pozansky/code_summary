@@ -20,7 +20,7 @@ class Opt:
         return
 
     @staticmethod
-    def min(objective, parameter):
+    def min(objective, parameter, lower_dim, upper_dim):
         """
         Minimization function.
 
@@ -47,7 +47,7 @@ class Opt:
             sre = SequentialRandomEmbedding(objective, parameter, optimizer)
             result = sre.opt()
         else:
-            result = optimizer.opt(objective, parameter)
+            result = optimizer.opt(objective, parameter, lower_dim, upper_dim)
         result.print_solution()
         return result
 

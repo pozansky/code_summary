@@ -20,6 +20,8 @@ class RacosOptimization:
         """
         Initialization.
         """
+        self.__lower_dim = None
+        self.__upper_dim = None
         self.__best_solution = None
         self.__algorithm = None
 
@@ -32,7 +34,7 @@ class RacosOptimization:
         self.__best_solution = None
         self.__algorithm = None
 
-    def opt(self, objective, parameter, strategy='WR'):
+    def opt(self, objective, parameter, lower_dim, upper_dim, strategy='WR'):
         """
         This function will choose optimization algorithm and use it to optimize.
 
@@ -57,9 +59,9 @@ class RacosOptimization:
                 self.__best_solution = self.__algorithm.opt(
                         objective, parameter, strategy, ub)
             else:
-                self.__algorithm = Racos()
+                self.__algorithm = Racos(lower_dim, upper_dim)
                 self.__best_solution = self.__algorithm.opt(
-                    objective, parameter, ub)
+                    objective, parameter, lower_dim, upper_dim, ub)
         return self.__best_solution
 
     @staticmethod

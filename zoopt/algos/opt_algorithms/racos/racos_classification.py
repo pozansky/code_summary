@@ -20,7 +20,7 @@ class RacosClassification:
     This class implements a classifier used by all Racos algorithms.
     """
 
-    def __init__(self, dim, positive, negative, ub=1):
+    def __init__(self, dim, positive, negative, lower_dim, upper_dim, ub=1):
         """
         Initialization
 
@@ -37,6 +37,8 @@ class RacosClassification:
         self.__negative_solution = negative
         self.__x_positive = None
         self.__uncertain_bit = ub
+        self.__lower_dim = lower_dim
+        self.__upper_dim = upper_dim
 
         regions = dim.get_regions()
         for i in range(dim.get_size()):
@@ -159,7 +161,7 @@ class RacosClassification:
                         if len(index_set) == 0:
                             index_set.append(k)
             self.set_uncertain_bit(index_set)
-            return
+            return self.__label_index
         elif type(self.__solution_space) == Dimension2:
             self.__x_positive = self.__positive_solution[np.random.randint(0, len(self.__positive_solution))]
             len_negative = len(self.__negative_solution)
@@ -274,12 +276,16 @@ class RacosClassification:
         """
         if type(self.__solution_space) == Dimension:
             x = copy.deepcopy(self.__x_positive.get_x())
-            for index in self.__label_index:
-                if self.__solution_space.get_type(index) is True:
-                    x[index] = np.random.uniform(self.__sample_region[index][0], self.__sample_region[index][1])
-                else:
-                    x[index] = np.random.randint(self.__sample_region[index][0], self.__sample_region[index][1] + 1)
+            if x[self.__lower_dim] > x[self.__upper_dim]:
+                for index in self.__label_index:
+                    # print("idx,cls", index)
+                    if self.__solution_space.get_type(index) is True:
+                        x[index] = np.random.uniform(self.__sample_region[index][0], self.__sample_region[index][1])
+                    else:
+                        x[index] = np.random.randint(self.__sample_region[index][0], self.__sample_region[index][1] + 1)
             return x
+
+
         elif type(self.__solution_space) == Dimension2:
             x = copy.deepcopy(self.__x_positive.get_x())
             for index in self.__label_index:
